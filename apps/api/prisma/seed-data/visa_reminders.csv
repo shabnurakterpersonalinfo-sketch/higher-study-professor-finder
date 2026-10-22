@@ -1,0 +1,2 @@
+id,student_id,target_country,i20_or_cas_received_date,visa_appointment_date,sevis_fee_paid,bank_solvency_expiry_date,custom_notes,notification_enabled
+visa_001,student_001,United States,2026-05-15,2026-06-20,true,2026-07-30,I-20 received from Drexel University. US Embassy Dhaka visa interview scheduled.,true

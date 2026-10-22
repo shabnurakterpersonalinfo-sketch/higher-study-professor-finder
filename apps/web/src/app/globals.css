@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: 'Inter';
+}
+
+html,
+body {
+  @apply bg-canvas text-ink antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Thin, unobtrusive scrollbars on kanban columns */
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-200;
+}
+
+input[type='range'],
+input[type='checkbox'] {
+  accent-color: #4f46e5;
+}
+
+/* Calm, consistent focus ring for keyboard users everywhere (utilities can override). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid #a5a9fc;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

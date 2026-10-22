@@ -1,0 +1,2 @@
+id,user_id,full_name,cgpa,gre_score,ielts_score,toefl_score,target_degree,funding_preference,target_intake,preferred_countries,research_interests
+student_001,usr_gu_001,Ahmed Rahman,3.45,318,7.5,102,PhD,Fully Funded,Fall,United States;Canada;Germany,Explainable AI;Machine Learning;Computer Vision;Cybersecurity

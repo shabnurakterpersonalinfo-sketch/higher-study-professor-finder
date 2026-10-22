@@ -1,0 +1,9 @@
+id,university_id,name,email,department,profile_link,google_scholar_link,lab_website,h_index,citation_count,accepting_students,research_areas
+prof_mit_smith,univ_mit,Prof. Jonathan Smith,smith@mit.edu,EECS,,,,,,,Machine Learning;Deep Learning;Computer Vision
+prof_stevens_han,univ_stevens,Tian Han,than6@stevens.edu,Computer Science,,,,,,,Explainable AI;Computer Vision
+prof_uky_cheng,univ_uky,Qiang (Shawn) Cheng,Qiang.Cheng@uky.edu,Computer Science,,,,,,,Data Mining;Machine Learning;Artificial Intelligence;Biomedical Informatics
+prof_utep_hossain,univ_utep,Mahmud Shahriar Hossain,mhossain@utep.edu,Computer Science,,,,,,,Modern AI;LLM;Deep Learning;Machine Learning;Data Mining
+prof_temple_latecki,univ_temple,Longin Jan Latecki,latecki@temple.edu,Computer and Information Sciences,,,,,,,Computer Vision;Natural Language Processing;Machine Learning;Deep Learning
+prof_utrgv_chuprov,univ_utrgv,Sergei Chuprov,sergei.chuprov@utrgv.edu,Computer Science,,,,,,,ML Applications Robustness;ML Security;Cyber-Physical Systems;Federated Learning
+prof_louisville_liu,univ_louisville,Zeyan Liu,z0liu020@louisville.edu,Computer Science and Engineering,,,,,,,Adversarial Machine Learning;Cyber Security
+prof_usf_ami,univ_usf,Amit Seal Ami,amitsealami@usf.edu,Computer Science and Engineering,,,,,,,Cyber Security;Software Engineering

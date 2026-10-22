@@ -1,0 +1,4 @@
+id,email,password_hash,role,plan,created_at
+usr_gu_001,ahmed.rahman@buet.ac.bd,,GU,STARTER,2025-09-01 10:00:00
+usr_admin_001,admin.support@higherstudy.bd,,ADMIN,PREMIUM,2025-08-01 09:00:00
+usr_superadmin_001,ceo@higherstudy.bd,,SUPER_ADMIN,PREMIUM,2025-01-01 00:00:00

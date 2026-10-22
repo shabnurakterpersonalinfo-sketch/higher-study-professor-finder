@@ -1,0 +1,453 @@
+// HigherStudy — Prisma schema
+// Based on the architecture spec, extended where the UI screens need data the spec
+// did not model (marked "EXT" below). Raw-SQL-only indexes (GIN trigram, tsvector)
+// live in prisma/migrations/*/migration.sql because Prisma cannot express them.
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"] // "fullTextSearchPostgres" on Prisma 6+
+}
+
+enum Role {
+  GU
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  PREMIUM
+}
+
+enum ReplyStatus {
+  NOT_SENT
+  MAILED
+  POSITIVE_REPLY
+  INTERVIEW
+  NO_RESPONSE
+  DECLINED
+}
+
+enum ApplicationStatus {
+  NOT_STARTED
+  PREPARING
+  SUBMITTED
+  UNDER_REVIEW // shown as "Waiting" on the tracker
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+  VISA // EXT: post-acceptance visa stage (tracker "Visa" column)
+}
+
+enum TransactionStatus {
+  SUCCESS
+  PENDING
+  FAILED
+  MANUALLY_RECONCILED
+}
+
+// EXT: one row per event in an outreach thread (Email Timeline on the detail view)
+enum OutreachEventType {
+  INITIAL_SENT
+  REMINDER_SENT
+  REPLY_RECEIVED
+  INTERVIEW_SCHEDULED
+  STATUS_CHANGED
+  NOTE
+}
+
+// EXT
+enum SavedItemType {
+  UNIVERSITY
+  PROFESSOR
+  PROGRAM
+}
+
+// EXT
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+model User {
+  id           String           @id @default(uuid())
+  email        String           @unique
+  passwordHash String
+  role         Role             @default(GU)
+  plan         SubscriptionPlan @default(FREE)
+  planExpiresAt DateTime?       // EXT: plan validity window
+  isActive     Boolean          @default(true) // EXT: soft-disable instead of hard delete
+  // EXT (onboarding): a GU can't use the app until the essentials setup is done.
+  profileCompletedAt DateTime?
+  toursSeen          String[]   @default([]) // screen tours finished or skipped, e.g. "dashboard"
+  featuresSeen       String[]   @default([]) // "New" highlights dismissed, ids from src/common/features.ts
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  studentProfile  StudentProfile?
+  transactions    Transaction[]
+  reconciledLogs  TransactionAudit[] @relation("AdminReconciler")
+  adminActions    AdminActionLog[]   @relation("ActingAdmin")
+  notifications   Notification[]
+  imports         ImportJob[]        @relation("ImportedBy")
+  sessions        Session[]
+
+  @@index([role])
+}
+
+model StudentProfile {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName           String
+  phone              String?  // EXT (Personal tab)
+  avatarUrl          String?  // EXT
+  undergradInstitution String? // EXT (Academic tab)
+  undergradMajor     String?  // EXT
+  graduationYear     Int?     // EXT
+  cgpa               Float?
+  cgpaScale          Float?   @default(4.0) // EXT
+  greScore           Int?
+  ieltsScore         Float?
+  toeflScore         Int?
+  targetDegree       String   // 'MS', 'PhD', 'PostDoc'
+  fundingPreference  String?  // 'FULLY_FUNDED' | 'PARTIAL' | 'SELF' (seed maps "Fully Funded" → FULLY_FUNDED)
+  targetIntake       String?  // 'Fall' | 'Spring'
+  preferredCountries String[]
+  researchInterests  String[]
+  publications       Json?    // EXT (Research tab)
+  experience         Json?    // EXT (Experience tab)
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  outreachLogs  ProfessorOutreach[]
+  applications  Application[]
+  visaReminders VisaReminder[]
+  savedItems    SavedItem[]
+
+  @@index([researchInterests], type: Gin)
+}
+
+model University {
+  id             String   @id @default(uuid()) // seed uses slugs ("univ_mit"); new rows get uuids
+  name           String
+  location       String   // "Cambridge, MA"
+  csRank         String?  // display text from the source: "#2 in Computer Science (tie)"
+  wesRequired    Boolean  @default(false)
+  // DERIVED from location / csRank by src/common/derive.ts (seed + admin writes). Never hand-edited.
+  country        String   @default("United States")
+  state          String?  // "MA"
+  csRankPosition Int?     // 2
+  csRankTied     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  programs   Program[]
+  professors Professor[]
+
+  @@index([name])
+  @@index([csRank])
+  @@index([csRankPosition])
+  @@index([country, state])
+}
+
+model Program {
+  id                 String     @id @default(uuid())
+  universityId       String
+  university         University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  programName        String
+  degreeLevel        String     // 'MS', 'PhD', 'PostDoc'
+  catalogLink        String?
+  deadlineDate       String?    // free text as published ("Dec 15"); see deadlineMonthDay
+  applicationFee     String?    // "$80"
+  feeWaiverType      String?    // 'Open House', 'Central Request', 'Automatic PhD', 'None'
+  feeWaiverInfo      String?
+  greRequirement     String?    // "Official GRE Required"
+  ieltsRequirement   String?    // "7.0 overall (6.5 min per sub-score)"
+  financialAidPolicy String?
+  limitationsNotes   String?
+  // DERIVED by src/common/derive.ts from the text fields above (seed + admin writes).
+  applicationFeeUsd  Int?       // 80
+  greRequired        Boolean?   // null = couldn't tell from the text
+  ieltsMinOverall    Float?     // 7.0 when a number is published
+  fundingLevel       String?    // 'GUARANTEED' | 'AVAILABLE' | 'CONDITIONAL'
+  wesRequired        Boolean    @default(false) // program text mentions WES (in addition to University.wesRequired)
+
+  applications Application[]
+
+  @@index([universityId, degreeLevel])
+  @@index([degreeLevel, fundingLevel])
+}
+
+model Professor {
+  id                String     @id @default(uuid())
+  universityId      String
+  university        University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  name              String     // stored without "Prof." — the UI adds the honorific
+  title             String?    // EXT, admin-entered: "Associate Professor of CS"
+  academicRank      String?    // EXT, admin-entered facet: Professor | Associate Professor | Assistant Professor | Lecturer
+  email             String?
+  department        String?
+  photoUrl          String?    // EXT
+  bio               String?    // EXT
+  profileLink       String?
+  googleScholarLink String?
+  labWebsite        String?
+  hIndex            Int?
+  citationCount     Int?
+  acceptingStudents Boolean    @default(true)
+  researchAreas     String[]
+  openPositions     Json?      // [{ "type": "PhD", "count": 2, "term": "Fall 2026" }]
+  // Generated tsvector (migration 2). Read-only; queried via $queryRaw.
+  searchVector      Unsupported("tsvector")?
+  updatedAt         DateTime   @default(now()) @updatedAt
+
+  outreachLogs ProfessorOutreach[]
+
+  @@index([universityId, acceptingStudents])
+  @@index([researchAreas], type: Gin)
+}
+
+model ProfessorOutreach {
+  id                  String      @id @default(uuid())
+  studentId           String
+  student             StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  professorId         String
+  professor           Professor   @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  subject             String?     // EXT: shown on dashboard "Recent Emails"
+  emailSentTime       DateTime?
+  replyStatus         ReplyStatus @default(NOT_SENT)
+  reminderSentTime    DateTime?   // when a follow-up was actually sent (logged via a REMINDER_SENT event)
+  nextReminderAt      DateTime?   // EXT: when the next follow-up is due. The source CSV's
+                                  // "reminder_sent_time" column is this (always sent + 7 days).
+  replyReceivedTime   DateTime?
+  fundingStatus       String?
+  interviewStatus     String?
+  interviewAt         DateTime?   // EXT
+  professorReplyNotes String?
+  attachedCvUrl       String?
+  attachedProposalUrl String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  events OutreachEvent[]
+
+  @@unique([studentId, professorId])
+  @@index([studentId, replyStatus])
+  @@index([emailSentTime, replyStatus])
+  @@index([nextReminderAt])
+}
+
+// EXT: thread events behind the Email Timeline
+model OutreachEvent {
+  id         String            @id @default(uuid())
+  outreachId String
+  outreach   ProfessorOutreach @relation(fields: [outreachId], references: [id], onDelete: Cascade)
+  type       OutreachEventType
+  occurredAt DateTime          @default(now())
+  note       String?
+  meta       Json?
+
+  @@index([outreachId, occurredAt])
+}
+
+model Application {
+  id                          String            @id @default(uuid())
+  studentId                   String
+  student                     StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  programId                   String
+  program                     Program           @relation(fields: [programId], references: [id], onDelete: Cascade)
+  status                      ApplicationStatus @default(NOT_STARTED)
+  department                  String?           // EXT (form §1)
+  programType                 String?           // EXT
+  intakeTerm                  String?           // EXT 'Fall 2025'
+  applicationRound            String?           // EXT
+  appliedAt                   DateTime?         // EXT (form §2)
+  deadline                    DateTime?         // EXT
+  expectedDecisionDate        DateTime?         // EXT
+  enrollmentDate              DateTime?         // EXT
+  interviewAt                 DateTime?         // EXT
+  feeStatus                   String?           // EXT 'PAID' | 'WAIVED' | 'PENDING'
+  feeAmount                   Float?            // EXT
+  applicationMethod           String?           // EXT 'Portal' | 'Common App' | 'Email'
+  feeWaiverClaimed            Boolean           @default(false)
+  trackingReferenceId         String?
+  officialTranscriptSubmitted Boolean           @default(false)
+  lor1Submitted               Boolean           @default(false)
+  lor2Submitted               Boolean           @default(false)
+  lor3Submitted               Boolean           @default(false)
+  sopSubmitted                Boolean           @default(false)
+  cvSubmitted                 Boolean           @default(false)
+  greSubmitted                Boolean           @default(false)
+  ieltsSubmitted              Boolean           @default(false)
+  toeflSubmitted              Boolean           @default(false) // EXT
+  notes                       String?
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @default(now()) @updatedAt
+
+  @@unique([studentId, programId]) // EXT: one application per program per student
+  @@index([studentId, status])
+  @@index([deadline])
+}
+
+model VisaReminder {
+  id                     String         @id @default(uuid())
+  studentId              String
+  student                StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  targetCountry          String
+  i20OrCasReceivedDate   DateTime?
+  visaAppointmentDate    DateTime?
+  sevisFeePaid           Boolean        @default(false)
+  bankSolvencyExpiryDate DateTime?
+  passportExpiryDate     DateTime?      // EXT
+  customNotes            String?
+  notificationEnabled    Boolean        @default(true)
+  createdAt              DateTime       @default(now())
+
+  @@index([studentId])
+  @@index([visaAppointmentDate])
+  @@index([bankSolvencyExpiryDate])
+}
+
+// EXT: Saved Items page + "Save University" / bookmark buttons
+model SavedItem {
+  id         String         @id @default(uuid())
+  studentId  String
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       SavedItemType
+  targetId   String
+  createdAt  DateTime       @default(now())
+
+  @@unique([studentId, type, targetId])
+  @@index([studentId, type])
+}
+
+model Transaction {
+  id                   String            @id @default(uuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount               Float
+  currency             String            @default("BDT")
+  paymentGateway       String            // 'bKash', 'Nagad', 'Rocket', 'Manual'
+  gatewayTransactionId String?           @unique
+  gatewayPaymentId     String?           // EXT: gateway's checkout/session id (pre-execution)
+  planPurchased        SubscriptionPlan
+  status               TransactionStatus @default(PENDING)
+  rawResponse          Json?             // EXT: last gateway payload, for disputes
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @default(now()) @updatedAt
+
+  auditLogs TransactionAudit[]
+
+  @@index([userId])
+  @@index([status, paymentGateway, createdAt])
+  @@index([gatewayPaymentId])
+}
+
+model TransactionAudit {
+  id                  String            @id @default(uuid())
+  transactionId       String
+  transaction         Transaction       @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  performedByAdminId  String
+  admin               User              @relation("AdminReconciler", fields: [performedByAdminId], references: [id])
+  previousStatus      TransactionStatus
+  newStatus           TransactionStatus
+  referenceId         String?           // EXT: offline/manual reference (bKash TrxID, bank slip no.)
+  reconciliationNotes String
+  timestamp           DateTime          @default(now())
+
+  @@index([transactionId])
+  @@index([performedByAdminId])
+}
+
+// EXT: system-wide administrative action log (Super Admin "audit-logs")
+model AdminActionLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation("ActingAdmin", fields: [adminId], references: [id])
+  action     String   // 'USER_PLAN_CHANGED', 'USER_ROLE_CHANGED', 'USER_DISABLED', 'TX_RECONCILED', ...
+  targetType String   // 'USER' | 'TRANSACTION' | 'UNIVERSITY' | 'PROFESSOR' | 'PROGRAM'
+  targetId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+// EXT: in-app notifications (bell icon) written by workers
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel @default(IN_APP)
+  kind      String              // 'OUTREACH_FOLLOWUP' | 'VISA_MILESTONE' | 'PAYMENT' | ...
+  title     String
+  body      String
+  link      String?
+  dedupeKey String?             @unique // prevents the daily job from double-notifying
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, readAt])
+}
+
+// EXT: admin CSV imports (Directory → Import CSV). Previews live in Redis;
+// a row is written here only when an import is committed (or fails while committing).
+enum ImportStatus {
+  COMMITTED
+  FAILED
+}
+
+model ImportJob {
+  id            String       @id @default(uuid())
+  entity        String       // 'universities' | 'programs' | 'professors'
+  fileName      String
+  performedById String
+  performedBy   User         @relation("ImportedBy", fields: [performedById], references: [id])
+  status        ImportStatus
+  totalRows     Int
+  created       Int          @default(0)
+  updated       Int          @default(0)
+  unchanged     Int          @default(0)
+  skipped       Int          @default(0) // rows with errors left out (partial import)
+  issues        Json?        // up to 200 { line, errors[] } and/or the failure message
+  createdAt     DateTime     @default(now())
+
+  @@index([createdAt])
+  @@index([performedById])
+}
+
+// EXT (auth): one row per signed-in device. The browser holds a refresh token
+// `<id>.<secret>` in an httpOnly cookie; only sha256(secret) is stored here.
+// Each refresh rotates the secret; presenting an older one revokes the session
+// (token theft). Access tokens (15 min) carry the session id so revocation is
+// enforced on the next request.
+model Session {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String
+  previousTokenHash String?   // the secret it replaced; tolerated briefly for parallel refreshes
+  rotatedAt         DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  lastUsedAt        DateTime  @default(now())
+  expiresAt         DateTime  // idle expiry, pushed forward on each refresh (capped by SESSION_MAX_DAYS)
+  revokedAt         DateTime?
+  revokedReason     String?   // LOGOUT | LOGOUT_ALL | PASSWORD_CHANGED | REUSE_DETECTED | DISABLED | REVOKED_BY_USER
+  userAgent         String?
+  ip                String?
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}

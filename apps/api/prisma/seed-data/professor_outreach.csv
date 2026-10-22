@@ -1,0 +1,4 @@
+id,student_id,professor_id,email_sent_time,reply_status,reminder_sent_time,reply_received_time,funding_status,interview_status,professor_reply_notes,attached_cv_url,attached_proposal_url
+outreach_001,student_001,prof_utrgv_chuprov,2025-10-23 02:31:00,DECLINED,,2025-10-23 10:15:00,No Open Slots,N/A,"Right now I do not have open PhD slots to support, unfortunately. However, this may change with funding. You are welcome to submit an application for other faculty.",,
+outreach_002,student_001,prof_louisville_liu,2025-10-23 02:22:00,MAILED,2025-10-30 02:22:00,,Pending,N/A,Initial cold email sent regarding Adversarial ML research alignment.,,
+outreach_003,student_001,prof_usf_ami,2025-05-09 02:46:00,POSITIVE_REPLY,2025-05-16 02:46:00,2025-05-12 14:20:00,Funding Available,Scheduled,Prof. Ami expressed strong interest in my software security background. Scheduled a technical Zoom call.,,

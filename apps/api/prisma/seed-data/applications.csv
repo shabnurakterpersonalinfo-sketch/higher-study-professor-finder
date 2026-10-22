@@ -1,0 +1,4 @@
+id,student_id,program_id,status,fee_waiver_claimed,tracking_reference_id,official_transcript_submitted,lor1_submitted,lor2_submitted,lor3_submitted,sop_submitted,cv_submitted,gre_submitted,ielts_submitted,notes
+app_001,student_001,prog_gmu_phd,PREPARING,false,REF-GMU-2025-01,true,true,true,false,true,true,true,true,Awaiting final recommendation letter from undergraduate advisor.
+app_002,student_001,prog_drexel_phd,SUBMITTED,true,REF-DREXEL-9920,true,true,true,true,true,true,true,true,Open House fee waiver claimed. WES official transcript evaluation attached.
+app_003,student_001,prog_jhu_phd,SUBMITTED,false,REF-JHU-88310,true,true,true,true,true,true,true,true,Official GRE and IELTS scores reported via ETS/British Council.

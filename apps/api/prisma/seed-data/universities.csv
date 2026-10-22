@@ -1,0 +1,17 @@
+id,name,location,cs_rank,wes_required
+univ_mit,Massachusetts Institute of Technology,"Cambridge, MA",#1 in Computer Science,false
+univ_stanford,Stanford University,"Stanford, CA",#2 in Computer Science (tie),false
+univ_cmu,Carnegie Mellon University,"Pittsburgh, PA",#2 in Computer Science (tie),false
+univ_ucb,University of California--Berkeley,"Berkeley, CA",#2 in Computer Science (tie),false
+univ_uiuc,University of Illinois--Urbana-Champaign,"Urbana, IL",#5 in Computer Science,false
+univ_gatech,Georgia Institute of Technology,"Atlanta, GA",#6 in Computer Science (tie),false
+univ_jhu,Johns Hopkins University,"Baltimore, MD",#20 in Computer Science (tie),true
+univ_gmu,George Mason University,"Fairfax, VA",#63 in Computer Science (tie),false
+univ_drexel,Drexel University,"Philadelphia, PA",#74 in Computer Science (tie),true
+univ_stevens,Stevens Institute of Technology,"Hoboken, NJ",#82 in Computer Science (tie),false
+univ_temple,Temple University,"Philadelphia, PA",#99 in Computer Science (tie),false
+univ_uky,University of Kentucky,"Lexington, KY",#106 in Computer Science (tie),false
+univ_utep,University of Texas - El Paso,"El Paso, TX",#179 in Computer Science (tie),false
+univ_utrgv,University of Texas at Rio Grande Valley,"Edinburg, TX",#187 in Computer Science (tie),true
+univ_usf,University of South Florida,"Tampa, FL",#106 in Computer Science (tie),false
+univ_louisville,University of Louisville,"Louisville, KY",#159 in Computer Science (tie),false

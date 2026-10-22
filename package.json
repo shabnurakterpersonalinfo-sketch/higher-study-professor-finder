@@ -1,0 +1,14 @@
+{
+  "name": "higherstudy",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @higherstudy/api",
+    "dev:worker": "npm run worker:dev -w @higherstudy/api",
+    "dev:web": "npm run dev -w @higherstudy/web",
+    "db:migrate": "npm run prisma:migrate -w @higherstudy/api",
+    "db:seed": "npm run prisma:seed -w @higherstudy/api",
+    "typecheck": "npm run typecheck -w @higherstudy/api && npm run typecheck -w @higherstudy/web",
+    "test": "npm test -w @higherstudy/api"
+  }
+}
