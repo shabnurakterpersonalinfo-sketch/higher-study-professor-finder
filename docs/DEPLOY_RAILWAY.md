@@ -183,3 +183,19 @@ demand) from the Redis service's **Data** tab, or with `railway ssh --service ap
   register that URL with your merchant account.
 - **Sessions:** after deploying this version everyone signs in once more (old 1-day tokens
   carry no session and are refused).
+
+## Troubleshooting
+
+**Pre-deploy fails: `function hs_norm_tag(text) does not exist` (migration `20261022000100_search`).**
+Fixed in the repo (the search functions now pin their `search_path`; PostgreSQL 17+ builds
+indexes with a restricted one). Push the fix, then clear the failed attempt:
+
+- *Database still empty* (first deploy): in **Postgres → Data**, run
+  `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` and redeploy `api`.
+- *Database has data:* `railway ssh --service api`, then
+  `npx prisma migrate resolve --rolled-back 20261022000100_search` and redeploy `api`.
+  The migration is re-runnable, so it applies cleanly on the next deploy.
+
+**Pre-deploy fails with `P3009` / "migrate found failed migrations".** A previous deploy's
+migration failed and Prisma won't continue until it is resolved — same two options as above,
+using the migration name from the error.

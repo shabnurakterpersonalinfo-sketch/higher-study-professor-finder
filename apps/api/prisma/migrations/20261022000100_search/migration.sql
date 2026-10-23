@@ -1,6 +1,11 @@
 -- HigherStudy 2/3 — search.
 -- Prisma can't express trigram opclasses, expression indexes or generated
 -- tsvector columns, so they live here. Re-runnable (IF NOT EXISTS / OR REPLACE).
+--
+-- Every helper function pins its search_path (SET search_path FROM CURRENT = the
+-- schema this migration runs in). PostgreSQL 17+ builds indexes, ANALYZEs and
+-- restores dumps with a restricted search_path, so an unpinned function that calls
+-- another one fails with "function hs_norm_tag(text) does not exist".
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -8,11 +13,13 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- Case, spaces and punctuation are ignored: "Cyber Security" = "Cybersecurity".
 -- MUST match normTag() in src/common/derive.ts.
 CREATE OR REPLACE FUNCTION hs_norm_tag(text)
-  RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+  RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE
+  SET search_path FROM CURRENT AS
 $$ SELECT regexp_replace(lower($1), '[^a-z0-9]+', '', 'g') $$;
 
 CREATE OR REPLACE FUNCTION hs_norm_array(text[])
-  RETURNS text[] LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+  RETURNS text[] LANGUAGE sql IMMUTABLE PARALLEL SAFE
+  SET search_path FROM CURRENT AS
 $$ SELECT coalesce(array_agg(hs_norm_tag(x)), '{}') FROM unnest($1) AS x $$;
 
 -- Research-area filter (&&) and student-fit ranking use this index.
@@ -30,7 +37,8 @@ CREATE INDEX IF NOT EXISTS "Program_programName_trgm_idx"  ON "Program"    USING
 -- ---------------------------------------------------------------- full-text
 -- array_to_string is STABLE, not IMMUTABLE, so wrap it for the generated column.
 CREATE OR REPLACE FUNCTION hs_immutable_array_to_string(text[], text)
-  RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+  RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE
+  SET search_path FROM CURRENT AS
 $$ SELECT array_to_string($1, $2) $$;
 
 -- Weighted: name + research areas (A), department (B), bio (C).
